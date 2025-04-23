@@ -8,30 +8,12 @@ from fpdf import FPDF
 from datetime import datetime
 import locale
 
-# ----------------------------------------------
-# Fonction pour formater les mois en français
-# ----------------------------------------------
-def format_month_fr(date):
-    mois_fr = {
-        1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin",
-        7: "Juillet", 8: "Août", 9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"
-    }
-    if isinstance(date, str):
-        date = pd.to_datetime(date, errors='coerce')
-    if pd.isna(date):
-        return ""
-    return f"{mois_fr[date.month]} {date.year}"
-
-# ----------------------------------------------
-# Configuration initiale et gestion de la locale
-# ----------------------------------------------
+# Définir la locale française pour gérer les mois en français
+locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')  # Pour Linux/Mac
 try:
-    locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
+    locale.setlocale(locale.LC_TIME, 'french')  # Pour Windows
 except locale.Error:
-    try:
-        locale.setlocale(locale.LC_TIME, 'french')
-    except locale.Error:
-        pass  # Continuer sans locale spécifique
+    locale.setlocale(locale.LC_TIME, '')  # Retour à la locale par défaut si 'french' échoue
 
 # Chemins temporaires pour graphiques et logos
 graph_path = None
@@ -41,136 +23,147 @@ conso_benef_path = None
 logo_ankara_path = None
 logo_assureur_path = None
 
-# ----------------------------------------------
-# Configuration de la page Streamlit
-# ----------------------------------------------
+# Configuration de la page
 st.set_page_config(page_title="Générateur de Rapport Santé", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS personnalisé pour un design blanc et vert
+# CSS personnalisé
 st.markdown("""
     <style>
     * {
         font-family: 'Arial', sans-serif;
-        color: #2D3748;
+        transition: all 0.3s ease;
     }
     body {
-        background: #F0FFF4;
+        background: #f5f7fa;
+        color: #333333;
     }
     .stApp {
-        max-width: 1100px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 20px;
-        background-color: #FFFFFF;
-        border-radius: 8px;
-        border: 1px solid #68D391;
+        padding: 30px;
+        background-color: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
     }
     h1 {
-        font-size: 2rem;
-        font-weight: 600;
-        color: #2F855A;
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #279244;
         text-align: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 2.5rem;
+        letter-spacing: -0.5px;
     }
     h2 {
-        font-size: 1.25rem;
-        font-weight: 500;
-        color: #2F855A;
-        margin-bottom: 1rem;
-        border-bottom: 1px solid #68D391;
-        padding-bottom: 4px;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #279244;
+        margin-bottom: 1.5rem;
+        border-bottom: 3px solid #f77f00;
+        padding-bottom: 8px;
+        display: inline-block;
     }
     .stFileUploader, .stSelectbox, .stTextInput, .stNumberInput {
-        background-color: #FFFFFF;
-        border: 1px solid #68D391;
-        border-radius: 4px;
-        padding: 8px;
-        margin-bottom: 1rem;
+        background-color: #ffffff;
+        border: 2px solid #d1d5db;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+        color: #333333;
     }
     .stFileUploader:hover, .stSelectbox:hover, .stTextInput:hover, .stNumberInput:hover {
-        border-color: #38A169;
+        border-color: #9ca3af;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     }
     .stButton>button {
-        background-color: #38A169;
-        color: #FFFFFF;
+        background-color: #279244;
+        color: #ffffff;
         border: none;
-        border-radius: 4px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
-        font-size: 0.9rem;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        box-shadow: 0 3px 10px rgba(39, 146, 68, 0.3);
+        transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
     }
     .stButton>button:hover {
-        background-color: #68D391;
+        background-color: #1e6f33;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(39, 146, 68, 0.4);
     }
     .stDownloadButton>button {
-        background-color: #2F855A;
-        color: #FFFFFF;
+        background-color: #f77f00;
+        color: #ffffff;
         border: none;
-        border-radius: 4px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
-        font-size: 0.9rem;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        box-shadow: 0 3px 10px rgba(247, 127, 0, 0.3);
+        transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
     }
     .stDownloadButton>button:hover {
-        background-color: #38A169;
+        background-color: #d66c00;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(247, 127, 0, 0.4);
     }
     .stDataFrame {
-        border: 1px solid #68D391;
-        border-radius: 4px;
+        border: 2px solid #d1d5db;
+        border-radius: 10px;
         overflow: hidden;
-        background-color: #FFFFFF;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        background-color: #ffffff;
+        color: #333333;
     }
     .stDataFrame table {
         width: 100%;
     }
     .stDataFrame th {
-        background-color: #C6F6D5;
-        color: #2D3748;
-        font-weight: 500;
-        padding: 8px;
+        background-color: #ff6f61;
+        color: #ffffff;
+        font-weight: 600;
     }
     .stDataFrame tr:nth-child(even) {
-        background-color: #F0FFF4;
+        background-color: #f8f9fa;
     }
     .stError, .stWarning {
-        background-color: #FFFFFF;
-        color: #2D3748;
-        border: 1px solid #68D391;
-        border-radius: 4px;
-        padding: 8px;
-        font-size: 0.9rem;
+        background-color: #ff6f6110;
+        color: #ff6f61;
+        border: 1px solid #ff6f61;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(255, 111, 97, 0.1);
     }
     div[data-testid="stVerticalBlock"] {
         padding: 20px;
-        border-radius: 4px;
-        background-color: #FFFFFF;
-        margin-bottom: 1rem;
-        border: 1px solid #68D391;
+        border-radius: 12px;
+        background-color: #ffffff;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     }
     @media (max-width: 768px) {
         .stApp {
-            padding: 10px;
+            padding: 15px;
         }
         h1 {
-            font-size: 1.75rem;
+            font-size: 2rem;
         }
         h2 {
-            font-size: 1.1rem;
+            font-size: 1.25rem;
         }
         .stButton>button, .stDownloadButton>button {
             width: 100%;
-            padding: 0.5rem;
+            padding: 0.75rem;
         }
         .stFileUploader, .stSelectbox, .stTextInput, .stNumberInput {
-            padding: 6px;
+            padding: 10px;
         }
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------------------------------------
-# Section 1 : Informations du contrat
-# ----------------------------------------------
+# Titre principal
 st.title("Générateur de Rapport Santé")
+
+# Section 1 : Informations du contrat
 st.subheader("Informations du contrat")
 with st.container():
     col1, col2, col3, col4 = st.columns(4)
@@ -199,6 +192,7 @@ if fichier_detail:
         xls = pd.ExcelFile(fichier_detail)
         if "DETAIL" in xls.sheet_names:
             df_detail = xls.parse("DETAIL")
+            # Nettoyer les données pour éviter les problèmes d'espaces ou de casse
             df_detail.iloc[:, 5] = df_detail.iloc[:, 5].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
             df_detail.iloc[:, 27] = df_detail.iloc[:, 27].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
             
@@ -239,9 +233,11 @@ if fichier_production:
         if not all(col in df_production.columns for col in expected_columns):
             st.error("❌ Le fichier PRODUCTION.xlsx ne contient pas toutes les colonnes attendues : " + ", ".join(expected_columns))
         else:
+            # Nettoyer les données dans PRODUCTION.xlsx
             df_production["Assureur"] = df_production["Assureur"].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
             df_production["Client"] = df_production["Client"].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
 
+            # Filtrer selon l'assureur et le client sélectionnés
             df_production_filtered = df_production[
                 (df_production["Assureur"] == nom_assureur) & 
                 (df_production["Client"] == client)
@@ -275,7 +271,7 @@ if fichier_clause:
         tranche_min_col = next((col for col in df_clause.columns if col in possible_min_cols), None)
         tranche_max_col = next((col for col in df_clause.columns if col in possible_max_cols), None)
         if not tranche_min_col or not tranche_max_col:
-            st.warning("⚠️ Les colonnes 'Rapport S/P min' ou 'Rapport S/P max' (ou équivalentes) sont introuvables.")
+            st.warning("⚠️ Les colonnes 'Rapport S/P min' ou 'Rapport S/P max' (ou équivalentes) sont introuvables dans le fichier Clause Ajustement Santé.")
         else:
             if tranche_min_col:
                 df_clause[tranche_min_col] = df_clause[tranche_min_col].apply(lambda x: f"{float(x)*100:.0f}%" if pd.notna(x) else x)
@@ -286,9 +282,7 @@ if fichier_clause:
         st.error(f"❌ Erreur lors du chargement du fichier Clause Ajustement Santé : {e}")
         df_clause = None
 
-# ----------------------------------------------
 # Section 2 : Filtrage et sinistralité
-# ----------------------------------------------
 df_filtre = None
 df_effectif = None
 sinistralite_ok = False
@@ -327,6 +321,7 @@ if df_detail is not None:
                 df_clause_styled = df_clause.copy()
                 highlight_row = None
                 if tranche_min_col and tranche_max_col:
+                    # Arrondi arithmétique du ratio S/P
                     ratio_sp_rounded = round(ratio_sp_value * 100) / 100
                     for idx, row in df_clause_styled.iterrows():
                         try:
@@ -339,7 +334,7 @@ if df_detail is not None:
                             continue
                 if highlight_row is not None:
                     def highlight_row_func(s):
-                        return ['background-color: #38A169' if s.name == highlight_row else '' for _ in s]
+                        return ['background-color: #f77f00' if s.name == highlight_row else '' for _ in s]
                     st.dataframe(df_clause_styled.style.apply(highlight_row_func, axis=1))
                 else:
                     st.dataframe(df_clause_styled)
@@ -352,24 +347,33 @@ if df_detail is not None:
 else:
     st.warning("⚠️ Chargez un fichier DETAIL.xlsx valide.")
 
-# ----------------------------------------------
 # Section 3 : Évolution des effectifs
-# ----------------------------------------------
 if sinistralite_ok and fichier_effectif:
     st.markdown("## II - Évolution des effectifs")
     try:
+        # Charger le fichier EFFECTIF.xlsx
         df_effectif = pd.read_excel(fichier_effectif)
+        
+        # Nettoyer les noms des colonnes (supprimer espaces, convertir en majuscules)
         df_effectif.columns = [c.strip().upper() for c in df_effectif.columns]
         
+        # Vérifier la présence des colonnes nécessaires
         required_columns = ['MOIS', 'ASSUREUR', 'CLIENT', 'ADHERENT', 'CONJOINT', 'ENFANT', 'TOTAL']
         missing_columns = [col for col in required_columns if col not in df_effectif.columns]
         if missing_columns:
-            st.error(f"❌ Les colonnes suivantes sont manquantes dans EFFECTIF.xlsx : {', '.join(missing_columns)}")
+            st.error(f"❌ Les colonnes suivantes sont manquantes dans le fichier EFFECTIF.xlsx : {', '.join(missing_columns)}")
         else:
-            df_effectif = df_effectif.rename(columns={'CONJOINT': 'CONJOINTS', 'ENFANT': 'ENFANTS'})
+            # Renommer les colonnes pour correspondre au format attendu
+            df_effectif = df_effectif.rename(columns={
+                'CONJOINT': 'CONJOINTS',
+                'ENFANT': 'ENFANTS'
+            })
+            
+            # Normaliser les colonnes ASSUREUR et CLIENT
             df_effectif['ASSUREUR'] = df_effectif['ASSUREUR'].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
             df_effectif['CLIENT'] = df_effectif['CLIENT'].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
             
+            # Appliquer les filtres sur ASSUREUR et CLIENT
             df_effectif_filtered = df_effectif[
                 (df_effectif['ASSUREUR'] == nom_assureur) &
                 (df_effectif['CLIENT'] == client)
@@ -378,16 +382,28 @@ if sinistralite_ok and fichier_effectif:
             if df_effectif_filtered.empty:
                 st.warning("⚠️ Aucune donnée dans EFFECTIF.xlsx pour l'assureur et le client sélectionnés.")
             else:
+                # Convertir la colonne MOIS en datetime
                 df_effectif_filtered["MOIS"] = pd.to_datetime(df_effectif_filtered["MOIS"], format="%d/%m/%Y", errors="coerce")
-                df_effectif_filtered = df_effectif_filtered.sort_values(by="MOIS", ascending=True)
-                df_effectif_filtered["MOIS"] = df_effectif_filtered["MOIS"].apply(format_month_fr)
                 
+                # Trier par ordre chronologique
+                df_effectif_filtered = df_effectif_filtered.sort_values(by="MOIS", ascending=True)
+                
+                # Formater les mois en français
+                mois_fr = {
+                    "January": "Janvier", "February": "Février", "March": "Mars", "April": "Avril", "May": "Mai",
+                    "June": "Juin", "July": "Juillet", "August": "Août", "September": "Septembre", "October": "Octobre",
+                    "November": "Novembre", "December": "Décembre"
+                }
+                df_effectif_filtered["MOIS"] = df_effectif_filtered["MOIS"].dt.strftime("%B %Y").replace(mois_fr, regex=True)
+                
+                # Afficher uniquement les colonnes demandées
                 display_columns = ["MOIS", "ADHERENT", "CONJOINTS", "ENFANTS", "TOTAL"]
                 df_effectif_display = df_effectif_filtered[display_columns]
                 st.dataframe(df_effectif_display)
 
+                # Créer le graphique d'évolution des effectifs
                 fig, ax = plt.subplots(figsize=(10, 5))
-                colors = ['#38A169', '#68D391', '#2F855A', '#C6F6D5']
+                colors = ['#279244', '#f77f00', '#ff6f61', '#2a9d8f']
                 for i, col in enumerate(["ADHERENT", "CONJOINTS", "ENFANTS", "TOTAL"]):
                     if col in df_effectif_filtered.columns:
                         ax.plot(df_effectif_filtered["MOIS"], df_effectif_filtered[col], marker='o', label=col.title(), color=colors[i % len(colors)])
@@ -398,17 +414,17 @@ if sinistralite_ok and fichier_effectif:
                 plt.xticks(rotation=45)
                 st.pyplot(fig)
                 
+                # Sauvegarder le graphique pour le PDF
                 evol_effectif_path = os.path.join(tempfile.gettempdir(), "graph_effectif.png")
                 fig.savefig(evol_effectif_path, bbox_inches='tight')
                 plt.close(fig)
                 
+                # Mettre à jour df_effectif
                 df_effectif = df_effectif_filtered
     except Exception as e:
         st.error(f"❌ Erreur lors du chargement des effectifs : {e}")
 
-# ----------------------------------------------
 # Section 4 : Consommation par type de bénéficiaire
-# ----------------------------------------------
 if sinistralite_ok and df_effectif is not None and df_filtre is not None and not df_filtre.empty:
     st.markdown("## III - Consommation par type de bénéficiaire")
     try:
@@ -426,7 +442,7 @@ if sinistralite_ok and df_effectif is not None and df_filtre is not None and not
         required_columns = ["ADHERENT", "CONJOINTS", "ENFANTS"]
         missing_columns = [col for col in required_columns if col not in df_effectif.columns]
         if missing_columns:
-            st.error(f"❌ Les colonnes suivantes sont manquantes dans EFFECTIF.xlsx : {', '.join(missing_columns)}")
+            st.error(f"❌ Les colonnes suivantes sont manquantes dans le fichier EFFECTIF.xlsx : {', '.join(missing_columns)}")
         else:
             effectifs = pd.Series({
                 "ASSURÉ PRINCIPAL": df_effectif["ADHERENT"].max(),
@@ -461,7 +477,7 @@ if sinistralite_ok and df_effectif is not None and df_filtre is not None and not
             df_graph_benef = tableau_final[tableau_final.index != "Total général"].copy()
             df_graph_benef["Montant couvert"] = df_graph_benef["Montant couvert"].str.replace(" ", "").astype(float)
             fig, ax = plt.subplots(figsize=(10, 5))
-            colors = ['#38A169', '#68D391', '#2F855A']
+            colors = ['#279244', '#f77f00', '#2a9d8f']
             ax.bar(df_graph_benef.index, df_graph_benef["Montant couvert"], color=colors)
             ax.set_title("Montants couverts par bénéficiaire")
             ax.set_xlabel("Type de bénéficiaire")
@@ -475,9 +491,7 @@ if sinistralite_ok and df_effectif is not None and df_filtre is not None and not
     except Exception as e:
         st.error(f"❌ Erreur lors du traitement de la consommation : {e}")
 
-# ----------------------------------------------
 # Section 5 : Consommations mensuelles
-# ----------------------------------------------
 if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     st.markdown("## IV - Consommations mensuelles")
     try:
@@ -487,12 +501,14 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
         col_couvert = df_filtre.columns[22]
         col_rejet = df_filtre.columns[24] if 24 < len(df_filtre.columns) else None
 
+        # Convertir la colonne des dates
         df_mensuel = df_filtre.copy()
         df_mensuel["DATE"] = pd.to_datetime(df_mensuel[col_date], errors="coerce")
         if df_mensuel["DATE"].isna().all():
             st.error("❌ La colonne des dates (colonne 1) contient des valeurs invalides ou est vide.")
             raise ValueError("Dates invalides pour les consommations mensuelles.")
 
+        # Filtrer sur les rejets si la colonne existe et contient des données valides
         if col_rejet is not None and col_rejet in df_mensuel.columns and not df_mensuel[col_rejet].isna().all():
             df_mensuel[col_rejet] = pd.to_numeric(df_mensuel[col_rejet], errors='coerce')
             df_mensuel = df_mensuel[df_mensuel[col_rejet].notna()]
@@ -503,7 +519,12 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
             st.warning("⚠️ Aucune donnée disponible pour les consommations mensuelles après filtrage.")
         else:
             df_mensuel = df_mensuel.sort_values(by="DATE", ascending=True)
-            df_mensuel["MOIS"] = df_mensuel["DATE"].apply(format_month_fr)
+            mois_fr = {
+                "January": "Janvier", "February": "Février", "March": "Mars", "April": "Avril", "May": "Mai",
+                "June": "Juin", "July": "Juillet", "August": "Août", "September": "Septembre", "October": "Octobre",
+                "November": "Novembre", "December": "Décembre"
+            }
+            df_mensuel["MOIS"] = df_mensuel["DATE"].dt.strftime("%B %Y").replace(mois_fr, regex=True)
 
             if df_mensuel["MOIS"].isna().any():
                 st.warning("⚠️ Certaines dates n'ont pas pu être converties en mois. Vérifiez le format des dates.")
@@ -553,9 +574,9 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
                 fig, ax = plt.subplots(figsize=(10, 5))
                 bar_width = 0.35
                 index = range(len(df_graph_mensuel["MOIS"]))
-                ax.bar([i - bar_width/2 for i in index], df_graph_mensuel["Montant Couvert"], bar_width, label="Montant Couvert", color='#38A169')
+                ax.bar([i - bar_width/2 for i in index], df_graph_mensuel["Montant Couvert"], bar_width, label="Montant Couvert", color='#279244')
                 if "Rejets" in df_graph_mensuel.columns:
-                    ax.bar([i + bar_width/2 for i in index], df_graph_mensuel["Rejets"], bar_width, label="Rejets", color='#68D391')
+                    ax.bar([i + bar_width/2 for i in index], df_graph_mensuel["Rejets"], bar_width, label="Rejets", color='#f77f00')
                 ax.set_title("Montants Couverts et Rejets par Mois")
                 ax.set_xlabel("Mois")
                 ax.set_ylabel("Montant (FCFA)")
@@ -572,9 +593,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
 else:
     st.warning("⚠️ Impossible de traiter les consommations mensuelles : données filtrées manquantes ou invalides.")
 
-# ----------------------------------------------
 # Section 6 : Consommations par spécialité
-# ----------------------------------------------
 if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     st.markdown("## V - Consommations par spécialité")
     try:
@@ -611,7 +630,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
         fig, ax = plt.subplots(figsize=(8, 6))
         total_couvert = df_graph["Couvert"].sum()
         labels = [f"{spec}" for spec, montant in zip(df_graph["Spécialité"], df_graph["Couvert"])]
-        colors = ['#38A169', '#68D391', '#2F855A', '#C6F6D5']
+        colors = ['#279244', '#f77f00', '#2a9d8f', '#ff6f61', '#264653']
         ax.pie(df_graph["Couvert"], labels=labels, autopct='%1.1f%%', startangle=90, explode=[0.05] * len(df_graph), colors=colors, textprops={'fontsize': 8}, labeldistance=1.1, pctdistance=0.85)
         ax.set_title("Répartition par spécialité")
         st.pyplot(fig)
@@ -621,9 +640,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     except Exception as e:
         st.error(f"❌ Erreur lors du traitement des spécialités : {e}")
 
-# ----------------------------------------------
 # Section 7 : Top des prestataires
-# ----------------------------------------------
 if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     st.markdown("## VI - Top des prestataires")
     try:
@@ -647,9 +664,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     except Exception as e:
         st.error(f"❌ Erreur lors du traitement des prestataires : {e}")
 
-# ----------------------------------------------
 # Section 8 : Top des Familles de Consommateurs
-# ----------------------------------------------
 if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     st.markdown("## VII - Top des Familles de Consommateurs")
     try:
@@ -672,9 +687,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     except Exception as e:
         st.error(f"❌ Erreur lors du traitement des familles de consommateurs : {e}")
 
-# ----------------------------------------------
 # Section 9 : Logos et génération PDF
-# ----------------------------------------------
 st.subheader("Ajouter des logos (optionnel)")
 st.markdown("### Logo Ankara")
 fichier_logo_ankara = st.file_uploader("Joindre le logo Ankara (PNG, JPG)", type=["png", "jpg", "jpeg"], key="logo_ankara")
@@ -760,14 +773,17 @@ elif st.button("Générer le PDF"):
                 page_width = float(pdf.w - 2 * pdf.l_margin)
                 line_height = 5.0
 
+                # Définir les largeurs de colonnes en fonction du nombre de colonnes du DataFrame
                 if is_prestataires:
                     col_widths = [15.0, 50.0, 20.0, 25.0, 20.0, 30.0, 30.0]
                 elif is_familles:
                     col_widths = [15.0, 30.0, 50.0, 30.0, 30.0, 30.0]
                 else:
+                    # Largeur par défaut : diviser la largeur de la page par le nombre de colonnes
                     num_cols = len(df.columns)
                     col_widths = [page_width / num_cols] * num_cols
 
+                # Ajuster les largeurs si elles dépassent la largeur de la page
                 total_width = sum(col_widths)
                 if total_width > page_width:
                     scale_factor = page_width / total_width
@@ -796,7 +812,7 @@ elif st.button("Générer le PDF"):
                         max_lines = max(max_lines, num_lines)
                     max_lines_per_row.append(max_lines)
 
-                pdf.set_fill_color(39, 146, 68)
+                pdf.set_fill_color(39, 146, 68)  # Couleur #279244
                 pdf.set_text_color(255, 255, 255)
                 pdf.set_font("Arial", 'B', 9)
                 x_start = float(pdf.l_margin)
@@ -829,7 +845,7 @@ elif st.button("Générer le PDF"):
                         pdf.line(pdf.l_margin + table_width, table_y_start, pdf.l_margin + table_width, current_y)
                         pdf.add_page()
                         table_y_start = float(pdf.get_y())
-                        pdf.set_fill_color(39, 146, 68)
+                        pdf.set_fill_color(39, 146, 68)  # Couleur #279244
                         pdf.set_text_color(255, 255, 255)
                         pdf.set_font("Arial", 'B', 9)
                         x_start = float(pdf.l_margin)
@@ -842,7 +858,7 @@ elif st.button("Générer le PDF"):
                         pdf.set_y(table_y_start + header_height)
                         pdf.set_draw_color(0, 0, 0)
                         pdf.set_line_width(0.2)
-                        pdf.line(pdf.l_margin, table_y_start, pdf.l_margin + table_width, y_start)
+                        pdf.line(pdf.l_margin, table_y_start, pdf.l_margin + table_width, table_y_start)
                         pdf.set_text_color(0, 0, 0)
                         pdf.set_font("Arial", '', 9)
 
@@ -885,11 +901,25 @@ elif st.button("Générer le PDF"):
             if df_sin is not None:
                 page_numbers.append(add_table_section(temp_pdf, "Section I - Sinistralité", df_sin))
                 if df_clause is not None:
+                    ratio_sp_value = float(df_sin["S/P"].iloc[0].replace("%", "")) / 100
+                    # Arrondi arithmétique du ratio S/P
+                    ratio_sp_rounded = round(ratio_sp_value * 100) / 100
+                    highlight_row = None
+                    if tranche_min_col and tranche_max_col:
+                        for idx, row in df_clause.iterrows():
+                            try:
+                                tranche_min = float(str(row[tranche_min_col]).replace('%', '')) / 100
+                                tranche_max = float(str(row[tranche_max_col]).replace('%', '')) / 100
+                                if tranche_min <= ratio_sp_rounded <= tranche_max:
+                                    highlight_row = idx
+                                    break
+                            except (ValueError, TypeError):
+                                continue
                     page_numbers.append(add_table_section(temp_pdf, "Clause Ajustement Santé", df_clause, highlight_row=highlight_row, new_page=False))
                 else:
                     page_numbers.append(0)
             if df_effectif is not None:
-                page_numbers.append(add_table_section(temp_pdf, "Section II - Évolution des effectifs", df_effectif_display))
+                page_numbers.append(add_table_section(temp_pdf, "Section II - Évolution des effectifs", df_effectif_display))  # Utiliser df_effectif_display
                 if evol_effectif_path and os.path.exists(evol_effectif_path):
                     temp_pdf.image(evol_effectif_path, x=10, w=180)
                     temp_pdf.ln(5)
@@ -1019,6 +1049,7 @@ elif st.button("Générer le PDF"):
                 add_table_section(pdf, "Section I - Sinistralité", df_sin)
                 if df_clause is not None:
                     ratio_sp_value = float(df_sin["S/P"].iloc[0].replace("%", "")) / 100
+                    # Arrondi arithmétique du ratio S/P
                     ratio_sp_rounded = round(ratio_sp_value * 100) / 100
                     highlight_row = None
                     if tranche_min_col and tranche_max_col:
@@ -1033,7 +1064,7 @@ elif st.button("Générer le PDF"):
                                 continue
                     add_table_section(pdf, "Clause Ajustement Santé", df_clause, highlight_row=highlight_row, new_page=False)
             if df_effectif is not None:
-                add_table_section(pdf, "Section II - Évolution des effectifs", df_effectif_display)
+                add_table_section(pdf, "Section II - Évolution des effectifs", df_effectif_display)  # Utiliser df_effectif_display
                 if evol_effectif_path and os.path.exists(evol_effectif_path):
                     pdf.image(evol_effectif_path, x=10, w=180)
                     pdf.ln(5)
