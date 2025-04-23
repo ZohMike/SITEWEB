@@ -6,14 +6,16 @@ import os
 import tempfile
 from fpdf import FPDF
 from datetime import datetime
-import locale
 
-# Définir la locale française pour gérer les mois en français
-locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')  # Pour Linux/Mac
-try:
-    locale.setlocale(locale.LC_TIME, 'french')  # Pour Windows
-except locale.Error:
-    locale.setlocale(locale.LC_TIME, '')  # Retour à la locale par défaut si 'french' échoue
+# Dictionnaire pour traduire les mois en français
+mois_fr = {
+    "January": "Janvier", "February": "Février", "March": "Mars", "April": "Avril",
+    "May": "Mai", "June": "Juin", "July": "Juillet", "August": "Août",
+    "September": "Septembre", "October": "Octobre", "November": "Novembre", "December": "Décembre"
+}
+
+def format_date_fr(date):
+    return date.strftime("%B %Y").replace(date.strftime("%B"), mois_fr.get(date.strftime("%B"), date.strftime("%B")))
 
 # Chemins temporaires pour graphiques et logos
 graph_path = None
@@ -149,7 +151,11 @@ st.markdown("""
         h2 {
             font-size: 1.25rem;
         }
-        .stButton>button, .stDownloadButton>button {
+        .stButton>button {
+            width: 100%;
+            padding: 0.75rem;
+        }
+        .stDownloadButton>button {
             width: 100%;
             padding: 0.75rem;
         }
@@ -190,7 +196,7 @@ df_production = None
 if fichier_detail:
     try:
         xls = pd.ExcelFile(fichier_detail)
-        if "DETAIL" in xls.sheet_names:
+        if         if "DETAIL" in xls.sheet_names:
             df_detail = xls.parse("DETAIL")
             # Nettoyer les données pour éviter les problèmes d'espaces ou de casse
             df_detail.iloc[:, 5] = df_detail.iloc[:, 5].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
@@ -389,12 +395,7 @@ if sinistralite_ok and fichier_effectif:
                 df_effectif_filtered = df_effectif_filtered.sort_values(by="MOIS", ascending=True)
                 
                 # Formater les mois en français
-                mois_fr = {
-                    "January": "Janvier", "February": "Février", "March": "Mars", "April": "Avril", "May": "Mai",
-                    "June": "Juin", "July": "Juillet", "August": "Août", "September": "Septembre", "October": "Octobre",
-                    "November": "Novembre", "December": "Décembre"
-                }
-                df_effectif_filtered["MOIS"] = df_effectif_filtered["MOIS"].dt.strftime("%B %Y").replace(mois_fr, regex=True)
+                df_effectif_filtered["MOIS"] = df_effectif_filtered["MOIS"].apply(format_date_fr)
                 
                 # Afficher uniquement les colonnes demandées
                 display_columns = ["MOIS", "ADHERENT", "CONJOINTS", "ENFANTS", "TOTAL"]
@@ -519,12 +520,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
             st.warning("⚠️ Aucune donnée disponible pour les consommations mensuelles après filtrage.")
         else:
             df_mensuel = df_mensuel.sort_values(by="DATE", ascending=True)
-            mois_fr = {
-                "January": "Janvier", "February": "Février", "March": "Mars", "April": "Avril", "May": "Mai",
-                "June": "Juin", "July": "Juillet", "August": "Août", "September": "Septembre", "October": "Octobre",
-                "November": "Novembre", "December": "Décembre"
-            }
-            df_mensuel["MOIS"] = df_mensuel["DATE"].dt.strftime("%B %Y").replace(mois_fr, regex=True)
+            df_mensuel["MOIS"] = df_mensuel["DATE"].apply(format_date_fr)
 
             if df_mensuel["MOIS"].isna().any():
                 st.warning("⚠️ Certaines dates n'ont pas pu être converties en mois. Vérifiez le format des dates.")
@@ -627,7 +623,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
 
         df_graph = tableau_spec[tableau_spec["Spécialité"] != "Total général"].copy()
         df_graph["Couvert"] = df_graph["Couvert"].str.replace(" ", "").astype(int)
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize Cinema, 6))
         total_couvert = df_graph["Couvert"].sum()
         labels = [f"{spec}" for spec, montant in zip(df_graph["Spécialité"], df_graph["Couvert"])]
         colors = ['#279244', '#f77f00', '#2a9d8f', '#ff6f61', '#264653']
@@ -901,25 +897,11 @@ elif st.button("Générer le PDF"):
             if df_sin is not None:
                 page_numbers.append(add_table_section(temp_pdf, "Section I - Sinistralité", df_sin))
                 if df_clause is not None:
-                    ratio_sp_value = float(df_sin["S/P"].iloc[0].replace("%", "")) / 100
-                    # Arrondi arithmétique du ratio S/P
-                    ratio_sp_rounded = round(ratio_sp_value * 100) / 100
-                    highlight_row = None
-                    if tranche_min_col and tranche_max_col:
-                        for idx, row in df_clause.iterrows():
-                            try:
-                                tranche_min = float(str(row[tranche_min_col]).replace('%', '')) / 100
-                                tranche_max = float(str(row[tranche_max_col]).replace('%', '')) / 100
-                                if tranche_min <= ratio_sp_rounded <= tranche_max:
-                                    highlight_row = idx
-                                    break
-                            except (ValueError, TypeError):
-                                continue
                     page_numbers.append(add_table_section(temp_pdf, "Clause Ajustement Santé", df_clause, highlight_row=highlight_row, new_page=False))
                 else:
                     page_numbers.append(0)
             if df_effectif is not None:
-                page_numbers.append(add_table_section(temp_pdf, "Section II - Évolution des effectifs", df_effectif_display))  # Utiliser df_effectif_display
+                page_numbers.append(add_table_section(temp_pdf, "Section II - Évolution des effectifs", df_effectif_display))
                 if evol_effectif_path and os.path.exists(evol_effectif_path):
                     temp_pdf.image(evol_effectif_path, x=10, w=180)
                     temp_pdf.ln(5)
@@ -1064,7 +1046,7 @@ elif st.button("Générer le PDF"):
                                 continue
                     add_table_section(pdf, "Clause Ajustement Santé", df_clause, highlight_row=highlight_row, new_page=False)
             if df_effectif is not None:
-                add_table_section(pdf, "Section II - Évolution des effectifs", df_effectif_display)  # Utiliser df_effectif_display
+                add_table_section(pdf, "Section II - Évolution des effectifs", df_effectif_display)
                 if evol_effectif_path and os.path.exists(evol_effectif_path):
                     pdf.image(evol_effectif_path, x=10, w=180)
                     pdf.ln(5)
