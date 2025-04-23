@@ -196,7 +196,7 @@ df_production = None
 if fichier_detail:
     try:
         xls = pd.ExcelFile(fichier_detail)
-        if         if "DETAIL" in xls.sheet_names:
+        if "DETAIL" in xls.sheet_names:
             df_detail = xls.parse("DETAIL")
             # Nettoyer les données pour éviter les problèmes d'espaces ou de casse
             df_detail.iloc[:, 5] = df_detail.iloc[:, 5].astype(str).str.strip().str.upper().str.replace(r'\s+', ' ', regex=True)
@@ -623,7 +623,7 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
 
         df_graph = tableau_spec[tableau_spec["Spécialité"] != "Total général"].copy()
         df_graph["Couvert"] = df_graph["Couvert"].str.replace(" ", "").astype(int)
-        fig, ax = plt.subplots(figsize Cinema, 6))
+        fig, ax = plt.subplots(figsize=(10, 6))
         total_couvert = df_graph["Couvert"].sum()
         labels = [f"{spec}" for spec, montant in zip(df_graph["Spécialité"], df_graph["Couvert"])]
         colors = ['#279244', '#f77f00', '#2a9d8f', '#ff6f61', '#264653']
