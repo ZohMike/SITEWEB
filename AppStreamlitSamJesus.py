@@ -319,7 +319,30 @@ if df_detail is not None:
             }])
             df_sin = df_sin[["Id Police Ankara", "N° Police Assureur", "Assureur", "Client", "Primes Émises Nettes", "Primes Acquises", "Sinistres", "S/P"]]
             st.markdown("## I - Sinistralité")
-            st.dataframe(df_sin)
+            
+            # Ajouter un style CSS pour permettre le retour à la ligne dans les cellules
+            st.markdown("""
+                <style>
+                .stDataFrame table td, .stDataFrame table th {
+                    white-space: normal !important;
+                    word-wrap: break-word !important;
+                    text-align: center !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            # Ajuster les largeurs des colonnes pour un meilleur affichage
+            column_config = {
+                "Id Police Ankara": st.column_config.TextColumn(width=120),
+                "N° Police Assureur": st.column_config.TextColumn(width=120),
+                "Assureur": st.column_config.TextColumn(width=200),  # Largeur augmentée pour "Assureur"
+                "Client": st.column_config.TextColumn(width=200),    # Largeur augmentée pour "Client"
+                "Primes Émises Nettes": st.column_config.TextColumn(width=120),
+                "Primes Acquises": st.column_config.TextColumn(width=120),
+                "Sinistres": st.column_config.TextColumn(width=120),
+                "S/P": st.column_config.TextColumn(width=80)
+            }
+            st.dataframe(df_sin, column_config=column_config, use_container_width=True)
 
             if df_clause is not None:
                 st.markdown("### Clause Ajustement Santé")
@@ -546,7 +569,19 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
 
                 df_mensuel_grouped = df_mensuel_grouped.loc[:, ~df_mensuel_grouped.columns.isin([None])]
                 
-                df_mensuel_grouped = df_mensuel_grouped.sort_values(by="MOIS", key=lambda x: pd.to_datetime(x, format="%B %Y", errors='coerce'))
+                # Convertir les mois en français en anglais pour un tri correct
+                mois_fr_to_en = {
+                    "Janvier": "January", "Février": "February", "Mars": "March", "Avril": "April",
+                    "Mai": "May", "Juin": "June", "Juillet": "July", "Août": "August",
+                    "Septembre": "September", "Octobre": "October", "Novembre": "November", "Décembre": "December"
+                }
+                df_mensuel_grouped["MOIS_EN"] = df_mensuel_grouped["MOIS"].apply(
+                    lambda x: " ".join([mois_fr_to_en.get(x.split()[0], x.split()[0]), x.split()[1]])
+                )
+                
+                # Trier les mois du plus ancien au plus récent
+                df_mensuel_grouped["MOIS_DATE"] = pd.to_datetime(df_mensuel_grouped["MOIS_EN"], format="%B %Y", errors='coerce')
+                df_mensuel_grouped = df_mensuel_grouped.sort_values(by="MOIS_DATE", ascending=True).drop(columns=["MOIS_DATE", "MOIS_EN"])
 
                 total_row = pd.DataFrame({
                     "MOIS": ["Total général"],
@@ -764,7 +799,7 @@ elif st.button("Générer le PDF"):
                 pdf.cell(0, 10, clean_text(title), ln=True)
                 pdf.ln(5)
 
-                pdf.set_font("Arial", '', 9)
+                pdf.set_font("Arial", '', 7)
                 pdf.set_text_color(0, 0, 0)
                 page_width = float(pdf.w - 2 * pdf.l_margin)
                 line_height = 5.0
@@ -827,7 +862,7 @@ elif st.button("Générer le PDF"):
                 pdf.line(pdf.l_margin, y_start, pdf.l_margin + table_width, y_start)
 
                 pdf.set_text_color(0, 0, 0)
-                pdf.set_font("Arial", '', 9)
+                pdf.set_font("Arial", '', 7)
                 table_y_start = float(pdf.get_y())
 
                 for i, (_, row) in enumerate(df_display.iterrows()):
@@ -856,7 +891,7 @@ elif st.button("Générer le PDF"):
                         pdf.set_line_width(0.2)
                         pdf.line(pdf.l_margin, table_y_start, pdf.l_margin + table_width, table_y_start)
                         pdf.set_text_color(0, 0, 0)
-                        pdf.set_font("Arial", '', 9)
+                        pdf.set_font("Arial", '', 7)
 
                     if highlight_row is not None and i == highlight_row:
                         pdf.set_fill_color(247, 127, 0)
