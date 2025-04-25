@@ -332,13 +332,16 @@ if df_detail is not None:
             df_sin = df_sin[["Id Police Ankara", "N° Police Assureur", "Assureur", "Client", "Primes Émises Nettes", "Primes Acquises", "Sinistres", "S/P"]]
             st.markdown("## I - Sinistralité")
             
-            # Ajouter un style CSS pour permettre le retour à la ligne dans les cellules
+            # Ajouter un style CSS pour forcer le retour à la ligne et réduire la taille de la police
             st.markdown("""
                 <style>
                 .stDataFrame table td, .stDataFrame table th {
                     white-space: normal !important;
                     word-wrap: break-word !important;
                     text-align: center !important;
+                    overflow-wrap: break-word !important;
+                    max-width: 100% !important;
+                    font-size: 12px !important; /* Réduction de la taille de la police */
                 }
                 </style>
             """, unsafe_allow_html=True)
@@ -347,12 +350,12 @@ if df_detail is not None:
             column_config = {
                 "Id Police Ankara": st.column_config.TextColumn(width=120),
                 "N° Police Assureur": st.column_config.TextColumn(width=120),
-                "Assureur": st.column_config.TextColumn(width=200),  # Largeur augmentée pour "Assureur"
-                "Client": st.column_config.TextColumn(width=200),    # Largeur augmentée pour "Client"
-                "Primes Émises Nettes": st.column_config.TextColumn(width=120),
-                "Primes Acquises": st.column_config.TextColumn(width=120),
-                "Sinistres": st.column_config.TextColumn(width=120),
-                "S/P": st.column_config.TextColumn(width=80)
+                "Assureur": st.column_config.TextColumn(width=200),
+                "Client": st.column_config.TextColumn(width=450),  # Largeur augmentée pour "Client"
+                "Primes Émises Nettes": st.column_config.TextColumn(width=90),  # Réduit de 100 à 90
+                "Primes Acquises": st.column_config.TextColumn(width=90),  # Réduit de 100 à 90
+                "Sinistres": st.column_config.TextColumn(width=90),  # Réduit de 100 à 90
+                "S/P": st.column_config.TextColumn(width=50)
             }
             st.dataframe(df_sin, column_config=column_config, use_container_width=True)
 
@@ -778,7 +781,7 @@ elif st.button("Générer le PDF"):
                         self.set_y(-15)
                         self.set_fill_color(39, 146, 68)
                         self.rect(0, self.h - 15, self.w, 10, 'F')
-                        self.set_font("Arial", "I", 8)
+                        self.set_font("Arial", "I", 7)
                         self.set_text_color(255, 255, 255)
                         page_text = f"Statistiques {nom_assureur}_{client} - Page {self.page_no() - 2} / {self.total_pages}"
                         self.cell(0, 10, page_text, align="C")
@@ -811,7 +814,7 @@ elif st.button("Générer le PDF"):
                 pdf.cell(0, 10, clean_text(title), ln=True)
                 pdf.ln(5)
 
-                pdf.set_font("Arial", '', 8)
+                pdf.set_font("Arial", '', 7)
                 pdf.set_text_color(0, 0, 0)
                 page_width = float(pdf.w - 2 * pdf.l_margin)
                 line_height = 5.0
@@ -874,7 +877,7 @@ elif st.button("Générer le PDF"):
                 pdf.line(pdf.l_margin, y_start, pdf.l_margin + table_width, y_start)
 
                 pdf.set_text_color(0, 0, 0)
-                pdf.set_font("Arial", '', 8)
+                pdf.set_font("Arial", '', 7)
                 table_y_start = float(pdf.get_y())
 
                 for i, (_, row) in enumerate(df_display.iterrows()):
@@ -903,7 +906,7 @@ elif st.button("Générer le PDF"):
                         pdf.set_line_width(0.2)
                         pdf.line(pdf.l_margin, table_y_start, pdf.l_margin + table_width, table_y_start)
                         pdf.set_text_color(0, 0, 0)
-                        pdf.set_font("Arial", '', 8)
+                        pdf.set_font("Arial", '', 7)
 
                     if highlight_row is not None and i == highlight_row:
                         pdf.set_fill_color(247, 127, 0)
