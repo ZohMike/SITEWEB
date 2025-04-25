@@ -29,6 +29,7 @@ logo_assureur_path = None
 st.set_page_config(page_title="Générateur de Rapport Santé", layout="wide", initial_sidebar_state="collapsed")
 
 # CSS personnalisé
+# CSS personnalisé (modifié pour un style minimaliste des file uploaders)
 st.markdown("""
     <style>
     * {
@@ -64,7 +65,18 @@ st.markdown("""
         padding-bottom: 8px;
         display: inline-block;
     }
-    .stFileUploader, .stSelectbox, .stTextInput, .stNumberInput {
+    .stFileUploader {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0; /* Bordure fine et discrète */
+        border-radius: 4px; /* Coins moins arrondis */
+        padding: 8px; /* Moins de padding */
+        margin-bottom: 1rem; /* Moins d'espace en bas */
+        color: #333333;
+    }
+    .stFileUploader:hover {
+        border-color: #b0b0b0; /* Effet de survol discret */
+    }
+    .stSelectbox, .stTextInput, .stNumberInput {
         background-color: #ffffff;
         border: 2px solid #d1d5db;
         border-radius: 8px;
@@ -73,7 +85,7 @@ st.markdown("""
         margin-bottom: 1.5rem;
         color: #333333;
     }
-    .stFileUploader:hover, .stSelectbox:hover, .stTextInput:hover, .stNumberInput:hover {
+    .stSelectbox:hover, .stTextInput:hover, .stNumberInput:hover {
         border-color: #9ca3af;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     }
@@ -174,13 +186,13 @@ st.subheader("Informations du contrat")
 with st.container():
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        fichier_detail = st.file_uploader("Joindre DETAIL.xlsx", type="xlsx", help="Fichier Excel contenant les détails des sinistres")
+        fichier_detail = st.file_uploader("DETAIL.xlsx", type="xlsx")  # Label simplifié, help supprimé
     with col2:
-        fichier_production = st.file_uploader("Joindre PRODUCTION.xlsx", type="xlsx", help="Fichier Excel avec les données de production")
+        fichier_production = st.file_uploader("PRODUCTION.xlsx", type="xlsx")  # Label simplifié, help supprimé
     with col3:
-        fichier_effectif = st.file_uploader("Joindre EFFECTIF.xlsx", type="xlsx", help="Fichier Excel des effectifs")
+        fichier_effectif = st.file_uploader("EFFECTIF.xlsx", type="xlsx")  # Label simplifié, help supprimé
     with col4:
-        fichier_clause = st.file_uploader("Joindre Clause Ajustement Santé.xlsx", type="xlsx", help="Fichier Excel des clauses d'ajustement santé")
+        fichier_clause = st.file_uploader("Clause Ajustement Santé.xlsx", type="xlsx")  # Label simplifié, help supprimé
 
 df_detail = None
 nom_assureur = ""
