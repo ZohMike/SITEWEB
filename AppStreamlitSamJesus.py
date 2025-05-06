@@ -824,7 +824,7 @@ elif st.button("Générer le PDF"):
                 pdf.set_text_color(0, 0, 0)
                 pdf.cell(0, 10, clean_text(title), ln=True)
                 pdf.ln(5)
-                pdf.set_font("Arial", '', 6.5)
+                pdf.set_font("Arial", '', 7)
                 pdf.set_text_color(0, 0, 0)
                 page_width = float(pdf.w - 2 * pdf.l_margin)
                 line_height = 5.0
@@ -888,7 +888,7 @@ elif st.button("Générer le PDF"):
                 pdf.set_line_width(0.2)
                 pdf.line(pdf.l_margin, y_start, pdf.l_margin + table_width, y_start)
                 pdf.set_text_color(0, 0, 0)
-                pdf.set_font("Arial", '', 6.5)
+                pdf.set_font("Arial", '', 7)
                 table_y_start = float(pdf.get_y())
                 page_height = float(pdf.h)
                 bottom_margin = float(pdf.b_margin)
