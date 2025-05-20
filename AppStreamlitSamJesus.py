@@ -8,6 +8,7 @@ from fpdf import FPDF
 from datetime import datetime
 import unicodedata
 import re
+import numpy as np
 
 # Dictionnaire pour traduire les mois en français
 mois_fr = {
@@ -131,153 +132,312 @@ logo_assureur_path = None
 # Configuration de la page
 st.set_page_config(page_title="Générateur de Rapport Santé", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS personnalisé
+# CSS personnalisé moderne
 st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap');
+    
     * {
-        font-family: 'Arial', sans-serif;
+        font-family: 'Poppins', sans-serif;
         transition: all 0.3s ease;
     }
+    
+    :root {
+        --primary-color: #06A77D;
+        --primary-light: #3DDCAE;
+        --primary-dark: #057156;
+        --secondary-color: #F58634;
+        --secondary-light: #FFAB72;
+        --secondary-dark: #D36A1B;
+        --bg-light: #F8FBFF;
+        --bg-white: #FFFFFF;
+        --text-dark: #2C3E50;
+        --text-muted: #7F8C8D;
+        --border-color: #E6EEF8;
+        --success: #2ECC71;
+        --warning: #F1C40F;
+        --error: #E74C3C;
+        --info: #3498DB;
+    }
+    
     body {
-        background: #f5f7fa;
-        color: #333333;
+        background: var(--bg-light);
+        color: var(--text-dark);
     }
+    
+    /* Main container styling */
     .stApp {
-        max-width: 1200px;
+        max-width: 1300px;
         margin: 0 auto;
-        padding: 30px;
-        background-color: #ffffff;
-        border-radius: 16px;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+        background: linear-gradient(135deg, var(--bg-light) 0%, #F0F8FF 100%);
     }
+    
+    /* Header styling with modern gradient */
+    header {
+        background: linear-gradient(120deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Improve container styling */
+    section.main, div[data-testid="stVerticalBlock"] {
+        background-color: var(--bg-white);
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        padding: 25px;
+        margin-bottom: 2rem;
+        border: 1px solid var(--border-color);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    div[data-testid="stVerticalBlock"]:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    }
+    
+    /* Modern title */
     h1 {
-        font-size: 2.5rem;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 2.6rem;
         font-weight: 700;
-        color: #279244;
+        color: var(--primary-color);
         text-align: center;
         margin-bottom: 2.5rem;
         letter-spacing: -0.5px;
+        position: relative;
+        padding-bottom: 1rem;
     }
+    
+    h1:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 150px;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        border-radius: 10px;
+    }
+    
+    /* Section headers */
     h2 {
-        font-size: 1.5rem;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.6rem;
         font-weight: 600;
-        color: #279244;
+        color: var(--primary-color);
         margin-bottom: 1.5rem;
-        border-bottom: 3px solid #f77f00;
         padding-bottom: 8px;
+        position: relative;
         display: inline-block;
     }
-    .stFileUploader {
-        background-color: #ffffff;
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
-        padding: 8px;
-        margin-bottom: 1rem;
-        color: #333333;
-    }
-    .stFileUploader:hover {
-        border-color: #b0b0b0;
-    }
-    .stSelectbox, .stTextInput, .stNumberInput {
-        background-color: #ffffff;
-        border: 2px solid #d1d5db;
-        border-radius: 8px;
-        padding: 12px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        margin-bottom: 1.5rem;
-        color: #333333;
-    }
-    .stSelectbox:hover, .stTextInput:hover, .stNumberInput:hover {
-        border-color: #9ca3af;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    }
-    .stButton>button {
-        background-color: #279244;
-        color: #ffffff;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        box-shadow: 0 3px 10px rgba(39, 146, 68, 0.3);
-        transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    }
-    .stButton>button:hover {
-        background-color: #1e6f33;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(39, 146, 68, 0.4);
-    }
-    .stDownloadButton>button {
-        background-color: #f77f00;
-        color: #ffffff;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        box-shadow: 0 3px 10px rgba(247, 127, 0, 0.3);
-        transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    }
-    .stDownloadButton>button:hover {
-        background-color: #d66c00;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(247, 127, 0, 0.4);
-    }
-    .stDataFrame {
-        border: 2px solid #d1d5db;
+    
+    h2:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, var(--secondary-color), var(--secondary-light));
         border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
-        background-color: #ffffff;
-        color: #333333;
     }
+    
+    /* File uploader styling */
+    .stFileUploader {
+        background-color: var(--bg-white);
+        border: 2px dashed var(--primary-light);
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 1.5rem;
+        color: var(--text-dark);
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stFileUploader:hover {
+        border-color: var(--primary-color);
+        background-color: rgba(6, 167, 125, 0.05);
+    }
+    
+    /* Form controls styling */
+    .stSelectbox, .stTextInput, .stNumberInput {
+        background-color: var(--bg-white);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        margin-bottom: 1.5rem;
+        color: var(--text-dark);
+        transition: all 0.3s ease;
+    }
+    
+    .stSelectbox:hover, .stTextInput:hover, .stNumberInput:hover {
+        border-color: var(--primary-light);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    }
+    
+    .stSelectbox:focus, .stTextInput:focus, .stNumberInput:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 6px 25px rgba(6, 167, 125, 0.15);
+    }
+    
+    /* Main action button */
+    .stButton>button {
+        background: linear-gradient(140deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.9rem 2.2rem;
+        font-weight: 600;
+        font-size: 1.05rem;
+        letter-spacing: 0.3px;
+        box-shadow: 0 5px 15px rgba(6, 167, 125, 0.25);
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+    }
+    
+    .stButton>button:hover {
+        background: linear-gradient(140deg, var(--primary-color) 20%, var(--primary-dark) 100%);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(6, 167, 125, 0.35);
+    }
+    
+    .stButton>button:active {
+        transform: translateY(0);
+    }
+    
+    /* Download button styling */
+    .stDownloadButton>button {
+        background: linear-gradient(140deg, var(--secondary-color) 0%, var(--secondary-dark) 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.9rem 2.2rem;
+        font-weight: 600;
+        font-size: 1.05rem;
+        letter-spacing: 0.3px;
+        box-shadow: 0 5px 15px rgba(245, 134, 52, 0.25);
+        transition: all 0.3s ease;
+    }
+    
+    .stDownloadButton>button:hover {
+        background: linear-gradient(140deg, var(--secondary-color) 20%, var(--secondary-dark) 100%);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(245, 134, 52, 0.35);
+    }
+    
+    /* DataFrames styling */
+    .stDataFrame {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        background-color: var(--bg-white);
+        color: var(--text-dark);
+    }
+    
     .stDataFrame table {
         width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
     }
+    
     .stDataFrame th {
-        background-color: #ff6f61;
-        color: #ffffff;
+        background: linear-gradient(140deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
         font-weight: 600;
-    }
-    .stDataFrame tr:nth-child(even) {
-        background-color: #f8f9fa;
-    }
-    .stError, .stWarning {
-        background-color: #ff6f6110;
-        color: #ff6f61;
-        border: 1px solid #ff6f61;
-        border-radius: 8px;
         padding: 12px;
-        box-shadow: 0 2px 8px rgba(255, 111, 97, 0.1);
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
     }
-    div[data-testid="stVerticalBlock"] {
-        padding: 20px;
+    
+    .stDataFrame td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .stDataFrame tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .stDataFrame tr:nth-child(even) {
+        background-color: rgba(6, 167, 125, 0.03);
+    }
+    
+    /* Notification styling */
+    .stError, .stWarning, .stInfo, .stSuccess {
         border-radius: 12px;
-        background-color: #ffffff;
+        padding: 16px;
         margin-bottom: 1.5rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+        border-left: 5px solid;
     }
+    
+    .stError {
+        background-color: rgba(231, 76, 60, 0.08);
+        color: var(--error);
+        border-left-color: var(--error);
+    }
+    
+    .stWarning {
+        background-color: rgba(241, 196, 15, 0.08);
+        color: var(--warning);
+        border-left-color: var(--warning);
+    }
+    
+    .stInfo {
+        background-color: rgba(52, 152, 219, 0.08);
+        color: var(--info);
+        border-left-color: var(--info);
+    }
+    
+    .stSuccess {
+        background-color: rgba(46, 204, 113, 0.08);
+        color: var(--success);
+        border-left-color: var(--success);
+    }
+    
+    /* Responsive adjustments */
     @media (max-width: 768px) {
         .stApp {
             padding: 15px;
         }
+        
         h1 {
-            font-size: 2rem;
+            font-size: 2.2rem;
         }
+        
         h2 {
-            font-size: 1.25rem;
+            font-size: 1.4rem;
         }
-        .stButton>button {
+        
+        .stButton>button, .stDownloadButton>button {
             width: 100%;
-            padding: 0.75rem;
+            padding: 0.85rem;
         }
-        .stDownloadButton>button {
-            width: 100%;
-            padding: 0.75rem;
-        }
-        .stFileUploader, .stSelectbox, .stTextInput, .stNumberInput {
-            padding: 10px;
+        
+        section.main, div[data-testid="stVerticalBlock"] {
+            padding: 15px;
         }
     }
     </style>
+    
+    <!-- Custom Header for a more polished look -->
+    <header>
+        <div style="text-align: center; padding: 0 20px;">
+            <h1 style="color: white; margin-bottom: 10px; font-size: 2.8rem;">Générateur de Rapport Santé</h1>
+            <p style="color: rgba(255,255,255,0.85); font-size: 1.1rem; max-width: 800px; margin: 0 auto;">
+                Créez des rapports statistiques détaillés pour analyser les performances des contrats d'assurance santé
+            </p>
+        </div>
+    </header>
 """, unsafe_allow_html=True)
 
 # Titre principal
@@ -734,13 +894,68 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
         df_graph["Couvert"] = df_graph["Couvert"].str.replace(" ", "").astype(int)
         fig, ax = plt.subplots(figsize=(10, 6))
         total_couvert = df_graph["Couvert"].sum()
-        labels = [f"{spec}" for spec, montant in zip(df_graph["Spécialité"], df_graph["Couvert"])]
-        colors = ['#279244', '#f77f00', '#2a9d8f', '#ff6f61', '#264653']
-        ax.pie(df_graph["Couvert"], labels=labels, autopct='%1.1f%%', startangle=90, explode=[0.05] * len(df_graph), colors=colors, textprops={'fontsize': 8}, labeldistance=1.1, pctdistance=0.85)
-        ax.set_title("Répartition par spécialité")
+        
+        # Préparer les données pour le pie chart
+        colors = ['#06A77D', '#F58634', '#2a9d8f', '#ff6f61', '#264653', '#3498db', '#9b59b6', '#e74c3c', '#f1c40f', '#1abc9c']
+        # S'assurer qu'il y a assez de couleurs pour toutes les spécialités
+        while len(colors) < len(df_graph):
+            colors.extend(colors)
+        colors = colors[:len(df_graph)]
+        
+        # Ajuster les paramètres du pie chart pour ajouter les connexions
+        wedges, texts, autotexts = ax.pie(
+            df_graph["Couvert"], 
+            autopct='%1.1f%%', 
+            startangle=90, 
+            explode=[0.05] * len(df_graph), 
+            colors=colors, 
+            textprops={'fontsize': 0},  # Masquer les étiquettes par défaut
+            labeldistance=None,  # Supprimer les étiquettes par défaut
+            pctdistance=0.75,    # Positionner les pourcentages plus près du centre
+            wedgeprops={'edgecolor': 'white', 'linewidth': 1.5},  # Bordures blanches pour plus de clarté
+            shadow=False  # Désactiver l'ombre pour éviter l'effet de double cercle
+        )
+        
+        # Personnaliser le style des pourcentages
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontsize(9)
+            autotext.set_fontweight('bold')
+            
+        # Ajouter des annotations avec des lignes de connexion
+        bbox_props = dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=1, alpha=0.9)
+        kw = dict(arrowprops=dict(arrowstyle="-", color="gray", linewidth=1.5, connectionstyle="angle,angleA=0,angleB=90,rad=10"),
+                  bbox=bbox_props, zorder=0, va="center")
+                  
+        # Positionner les étiquettes à une distance adaptée avec lignes connectrices
+        for i, (wedge, text_label) in enumerate(zip(wedges, [f"{spec}" for spec in df_graph["Spécialité"]])):
+            ang = (wedge.theta2 - wedge.theta1) / 2. + wedge.theta1
+            x = np.cos(np.deg2rad(ang))
+            y = np.sin(np.deg2rad(ang))
+            
+            # Calculer la distance horizontale en fonction de la position
+            horizontalalignment = {-1: "right", 1: "left"}[int(np.sign(x))]
+            connectionstyle = f"angle,angleA=0,angleB={ang},rad=10"
+            
+            # Ajuster la distance en fonction de la taille du graphique
+            distance = 1.35
+            
+            # Positionner le texte et dessiner la ligne de connexion
+            ax.annotate(text_label, xy=(x, y), xytext=(distance*x, distance*y),
+                      horizontalalignment=horizontalalignment,
+                      **kw)
+        
+        # Titre et style - augmenter l'espace avec le graphique
+        fig.subplots_adjust(top=0.85)  # Réduire la zone du graphique pour donner plus d'espace au titre
+        ax.set_title("Répartition par spécialité", fontsize=14, fontweight='bold', pad=40, y=1.1)
+        
+        # Supprimer les cadres et les axes
+        ax.set_frame_on(False)
+        ax.axis('equal')  # Assurer un cercle parfait
+        
         st.pyplot(fig)
         graph_path = os.path.join(tempfile.gettempdir(), "graph_specialite.png")
-        fig.savefig(graph_path, bbox_inches='tight')
+        fig.savefig(graph_path, bbox_inches='tight', dpi=300)
         plt.close(fig)
     except Exception as e:
         st.error(f"❌ Erreur lors du traitement des spécialités : {e}")
