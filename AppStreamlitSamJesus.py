@@ -441,7 +441,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Titre principal
-st.title("Générateur de Rapport Santé")
+st.title("Ankara Services")
 
 # Section 1 : Informations du contrat
 st.subheader("Informations du contrat")
