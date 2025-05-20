@@ -1104,7 +1104,7 @@ elif st.button("Générer le PDF"):
                         self.set_y(-15)
                         self.set_fill_color(39, 146, 68)
                         self.rect(0, self.h - 15, self.w, 10, 'F')
-                        self.set_font("Arial", "I", 7)
+                        self.set_font("Arial", "I", 8)  # Augmenté de 7 à 8
                         self.set_text_color(255, 255, 255)
                         page_text = f"Statistiques {clean_text(nom_assureur)}_{clean_text(client_short)} - Page {self.page_no() - 2} / {self.total_pages}"
                         self.cell(0, 10, page_text, align="C")
@@ -1155,7 +1155,7 @@ elif st.button("Générer le PDF"):
                 pdf.set_text_color(0, 0, 0)
                 pdf.cell(0, 10, clean_text(title), ln=True)
                 pdf.ln(5)
-                pdf.set_font("Arial", '', 7)
+                pdf.set_font("Arial", '', 8)  # Augmenté de 7 à 8
                 pdf.set_text_color(0, 0, 0)
                 page_width = float(pdf.w - 2 * pdf.l_margin)
                 line_height = 5.0
@@ -1464,14 +1464,20 @@ elif st.button("Générer le PDF"):
                 add_table_section(pdf, "Section VI - Top des prestataires", df_prestataires, is_prestataires=True)
             if 'df_familles' in locals():
                 add_table_section(pdf, "Section VII - Top des Familles de Consommateurs", df_familles, is_familles=True)
+            
+            # Génération du PDF
             pdf_output = BytesIO()
             pdf_bytes = pdf.output(dest='S').encode('latin1')
             pdf_output.write(pdf_bytes)
             pdf_output.seek(0)
             filename = f"{clean_text(nom_assureur)}_{clean_text(client_short)}_rapport_sante.pdf"
+            
+            # Téléchargement du PDF
             st.download_button("Télécharger le PDF", pdf_output, file_name=filename)
             st.success("✅ PDF généré avec succès !")
     except Exception as e:
         st.error(f"❌ Erreur lors de la génération du PDF : {e}")
+        import traceback
+        st.error(traceback.format_exc())
     finally:
         cleanup_temp_files()
