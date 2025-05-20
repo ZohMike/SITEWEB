@@ -19,34 +19,106 @@ mois_fr = {
 def format_date_fr(date):
     return date.strftime("%B %Y").replace(date.strftime("%B"), mois_fr.get(date.strftime("%B"), date.strftime("%B")))
 
-# Fonction pour extraire jusqu'à max_words mots d'un nom de client
-def extract_client_words(client, max_words=4):
+# Fonction pour extraire intelligemment un nombre adapté de mots d'un nom de client
+def extract_client_words(client, max_words=4, max_chars=30):
     """
-    Extrait jusqu'à max_words mots d'une chaîne de caractères représentant un nom de client.
+    Extrait un nombre adapté de mots d'un nom de client en fonction de la longueur des mots.
     Les mots liés par une apostrophe (ex. "d'ALMEIDA") sont considérés comme un seul mot.
     
     Args:
         client (str): Nom du client.
-        max_words (int): Nombre maximum de mots à extraire (par défaut 4).
+        max_words (int): Nombre maximum initial de mots à extraire (par défaut 4).
+        max_chars (int): Nombre approximatif maximum de caractères souhaité (par défaut 30).
     
     Returns:
-        str: Chaîne contenant jusqu'à max_words mots, ou "(vide)" si l'entrée est vide.
+        str: Chaîne contenant un nombre adapté de mots, ou "(vide)" si l'entrée est vide.
     
     Exemple:
         >>> extract_client_words("Société d'ALMEIDA Jean Baptiste KOUADIO SARL")
-        'Société d'ALMEIDA Jean Baptiste'
+        'Société d'ALMEIDA Jean'
+        
+        >>> extract_client_words("ETABLISSEMENTS COMMERCIAUX PHARMACEUTIQUES INTERNATIONAUX")
+        'ETABLISSEMENTS COMMERCIAUX'
     """
     if not client or not client.strip():
         return "(vide)"
     
-    # Normaliser les caractères Unicode (ex. ’ → ')
+    # Normaliser les caractères Unicode (ex. ' → ')
     normalized_client = unicodedata.normalize('NFKD', client).strip()
     # Splitter uniquement sur les espaces, préserver les apostrophes
     client_words = re.split(r'\s+', normalized_client)
     # Filtrer les mots non vides
     client_words = [word for word in client_words if word]
-    # Prendre les max_words premiers mots et joindre avec des espaces
-    return " ".join(client_words[:max_words])
+    
+    # Logique adaptative pour déterminer le nombre optimal de mots
+    actual_max_words = max_words
+    
+    # Si les 2 premiers mots sont déjà très longs (plus de max_chars/2 caractères)
+    if len(" ".join(client_words[:2])) > max_chars/2:
+        actual_max_words = 2
+    # Si les 3 premiers mots sont déjà longs (plus de 2*max_chars/3 caractères)
+    elif len(" ".join(client_words[:3])) > 2*max_chars/3:
+        actual_max_words = 3
+    # Pour les cas extrêmes où même un seul mot est très long
+    elif client_words and len(client_words[0]) > max_chars - 5:
+        # Tronquer le premier mot s'il est extrêmement long
+        return client_words[0][:max_chars-3] + "..."
+        
+    # Prendre les actual_max_words premiers mots et joindre avec des espaces
+    result = " ".join(client_words[:actual_max_words])
+    
+    # Si le résultat reste trop long, ajouter des points de suspension
+    if len(result) > max_chars:
+        result = result[:max_chars-3] + "..."
+        
+    return result
+
+# Fonction pour traiter les noms d'assureurs trop longs
+def extract_assureur_words(assureur, max_words=3, max_chars=25):
+    """
+    Extrait un nombre adapté de mots d'un nom d'assureur en fonction de la longueur des mots.
+    
+    Args:
+        assureur (str): Nom de l'assureur.
+        max_words (int): Nombre maximum initial de mots à extraire (par défaut 3).
+        max_chars (int): Nombre approximatif maximum de caractères souhaité (par défaut 25).
+    
+    Returns:
+        str: Chaîne contenant un nombre adapté de mots, ou "(vide)" si l'entrée est vide.
+    
+    Exemple:
+        >>> extract_assureur_words("COMPAGNIE NATIONALE D'ASSURANCE AFRICAINE")
+        'COMPAGNIE NATIONALE D'ASSURANCE'
+    """
+    if not assureur or not assureur.strip():
+        return "(vide)"
+    
+    # Normaliser les caractères Unicode
+    normalized_assureur = unicodedata.normalize('NFKD', assureur).strip()
+    # Splitter uniquement sur les espaces, préserver les apostrophes
+    assureur_words = re.split(r'\s+', normalized_assureur)
+    # Filtrer les mots non vides
+    assureur_words = [word for word in assureur_words if word]
+    
+    # Logique adaptative pour déterminer le nombre optimal de mots
+    actual_max_words = max_words
+    
+    # Si les 2 premiers mots sont déjà très longs
+    if len(" ".join(assureur_words[:2])) > max_chars/2:
+        actual_max_words = 2
+    # Pour les cas extrêmes où même un seul mot est très long
+    elif assureur_words and len(assureur_words[0]) > max_chars - 5:
+        # Tronquer le premier mot s'il est extrêmement long
+        return assureur_words[0][:max_chars-3] + "..."
+        
+    # Prendre les actual_max_words premiers mots et joindre avec des espaces
+    result = " ".join(assureur_words[:actual_max_words])
+    
+    # Si le résultat reste trop long, ajouter des points de suspension
+    if len(result) > max_chars:
+        result = result[:max_chars-3] + "..."
+        
+    return result
 
 # Chemins temporaires pour graphiques et logos
 graph_path = None
@@ -263,9 +335,12 @@ if fichier_detail:
                         date_col = df_detail.iloc[:, 0]
                         date_col = pd.to_datetime(date_col, errors='coerce')
                         if not date_col.isna().all():
-                            date_min = date_col.min().strftime("%d/%m/%Y")
-                            date_max = date_col.max().strftime("%d/%m/%Y")
-                            periode_value = f"Du {date_min} au {date_max}"
+                            date_min = date_col.min()
+                            date_max = date_col.max()
+                            mois_min = mois_fr.get(date_min.strftime("%B"), date_min.strftime("%B"))
+                            mois_max = mois_fr.get(date_max.strftime("%B"), date_max.strftime("%B"))
+                            annee_max = date_max.strftime("%Y")
+                            periode_value = f"de {mois_min} à {mois_max} {annee_max}"
                     st.text_input("Période concernée", value=periode_value, disabled=True)
                     periode = periode_value
         else:
@@ -353,12 +428,13 @@ if df_detail is not None:
 
             montant_sinistres = df_filtre.iloc[:, 22].sum()
             ratio_sp = montant_sinistres / prime_acquise if prime_acquise > 0 else 0
-            # Extraire jusqu'à 4 mots du nom du client
+            # Extraire intelligemment les noms du client et de l'assureur
             client_short = extract_client_words(client, max_words=4)
+            assureur_short = extract_assureur_words(nom_assureur, max_words=3)
             df_sin = pd.DataFrame([{
                 "Id Police Ankara": police_ankara,
                 "N° Police Assureur": police_assureur or "(vide)",
-                "Assureur": nom_assureur,
+                "Assureur": assureur_short,
                 "Client": client_short,
                 "Primes Émises Nettes": f"{prime_nette:,.0f}".replace(",", " "),
                 "Primes Acquises": f"{prime_acquise:,.0f}".replace(",", " "),
@@ -456,7 +532,7 @@ if sinistralite_ok and fichier_effectif:
                 df_effectif_display = df_effectif_filtered[display_columns]
                 st.dataframe(df_effectif_display)
                 fig, ax = plt.subplots(figsize=(10, 5))
-                colors = ['#279244', '#f77f00', '#ff6f61', '#2a9d8f']
+                colors = ['#279244', '#f77f00', '#ff6f61']
                 for i, col in enumerate(["ADHERENT", "CONJOINTS", "ENFANTS", "TOTAL"]):
                     if col in df_effectif_filtered.columns:
                         ax.plot(df_effectif_filtered["MOIS"], df_effectif_filtered[col], marker='o', label=col.title(), color=colors[i % len(colors)])
@@ -707,26 +783,53 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
 if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
     st.markdown("## VII - Top des Familles de Consommateurs")
     try:
-        col_carte = df_filtre.columns[9]
-        col_nom = df_filtre.columns[11]
-        col_couvert = df_filtre.columns[22]
-        df_familles = df_filtre.groupby([col_carte, col_nom]).agg({
-            col_carte: "count",
+        # Rechercher les colonnes spécifiques par nom plutôt que par position
+        col_couvert = df_filtre.columns[22]  # Colonne montant couvert
+        
+        # Rechercher la colonne N°CARTE ASSURÉ PRINCIPAL par nom approximatif
+        col_carte_assure_principal = None
+        col_nom_assure_principal = None
+        
+        for col in df_filtre.columns:
+            col_str = str(col).upper().strip()
+            # Recherche de la colonne N°CARTE ASSURÉ PRINCIPAL
+            if "CARTE" in col_str and ("ASSURE" in col_str or "ASSURÉ" in col_str) and "PRINCIPAL" in col_str:
+                col_carte_assure_principal = col
+            # Recherche de la colonne ASSURÉ PRINCIPAL
+            elif ("ASSURE" in col_str or "ASSURÉ" in col_str) and "PRINCIPAL" in col_str and "CARTE" not in col_str:
+                col_nom_assure_principal = col
+                
+        # Si les colonnes spécifiques n'ont pas été trouvées, utiliser des positions par défaut
+        if col_carte_assure_principal is None:
+            col_carte_assure_principal = df_filtre.columns[9]  # Position par défaut
+            st.warning("⚠️ Colonne 'N°CARTE ASSURÉ PRINCIPAL' non trouvée. Utilisation de la colonne par défaut.")
+            
+        if col_nom_assure_principal is None:
+            col_nom_assure_principal = df_filtre.columns[11]  # Position par défaut
+            st.warning("⚠️ Colonne 'ASSURÉ PRINCIPAL' non trouvée. Utilisation de la colonne par défaut.")
+            
+        # Afficher les colonnes utilisées (pour debug et information)
+        st.info(f"Colonnes utilisées : Carte Assuré Principal = '{df_filtre.columns[df_filtre.columns.get_loc(col_carte_assure_principal)]}', Nom Assuré Principal = '{df_filtre.columns[df_filtre.columns.get_loc(col_nom_assure_principal)]}'")
+            
+        # Grouper par numéro de carte de l'assuré principal pour obtenir le cumul des dépenses par famille
+        df_familles = df_filtre.groupby([col_carte_assure_principal, col_nom_assure_principal]).agg({
+            col_carte_assure_principal: "count",
             col_couvert: "sum"
-        }).rename(columns={col_carte: "Nombre d’actes", col_couvert: "Couvert"}).reset_index()
-        df_familles.columns = ["N° de Famille", "Assuré Principal", "Nombre d’actes", "Couvert"]
+        }).rename(columns={col_carte_assure_principal: "Nombre d'actes", col_couvert: "Couvert"}).reset_index()
+        
+        df_familles.columns = ["N° de Famille", "Assuré Principal", "Nombre d'actes", "Couvert"]
         df_familles = df_familles.sort_values(by="Couvert", ascending=False)
         total_covered = df_familles["Couvert"].sum()
-        total_actes = df_familles["Nombre d’actes"].sum()
+        total_actes = df_familles["Nombre d'actes"].sum()
         df_familles["Proportion"] = (df_familles["Couvert"] / total_covered * 100).round(0).astype(int).astype(str) + "%"
         df_familles["Ordre"] = range(1, len(df_familles) + 1)
         df_familles["Couvert"] = df_familles["Couvert"].apply(lambda x: f"{int(x):,}".replace(",", " "))
-        df_familles = df_familles[["Ordre", "N° de Famille", "Assuré Principal", "Nombre d’actes", "Couvert", "Proportion"]]
+        df_familles = df_familles[["Ordre", "N° de Famille", "Assuré Principal", "Nombre d'actes", "Couvert", "Proportion"]]
         total_row = pd.DataFrame({
             "Ordre": [""],
             "N° de Famille": ["Total"],
             "Assuré Principal": [""],
-            "Nombre d’actes": [f"{int(total_actes):,}".replace(",", " ")],
+            "Nombre d'actes": [f"{int(total_actes):,}".replace(",", " ")],
             "Couvert": [f"{int(total_covered):,}".replace(",", " ")],
             "Proportion": ["100%"]
         })
@@ -795,6 +898,7 @@ elif st.button("Générer le PDF"):
                 """
                 Nettoie le texte pour gérer correctement les caractères accentués et spéciaux.
                 Convertit les caractères Unicode en leur équivalent ASCII compatible avec Latin-1.
+                Préserve certains caractères accentués importants comme 'à'.
                 """
                 if isinstance(text, pd.DataFrame):
                     # Traitement pour DataFrame
@@ -802,14 +906,26 @@ elif st.button("Générer le PDF"):
                         text[col] = text[col].apply(lambda x: clean_text(x) if isinstance(x, str) else str(x))
                     return text
                 elif isinstance(text, str):
+                    # Préserver certains caractères accentués spécifiques
+                    preserved_chars = {'à': 'à', 'À': 'À', 'é': 'é', 'É': 'É', 'è': 'è', 'È': 'È'}
+                    
+                    # Sauvegarder les caractères à préserver
+                    for char, replacement in preserved_chars.items():
+                        text = text.replace(char, f"__PRESERVED_{ord(char)}__")
+                    
                     # Normalisation Unicode pour décomposer les caractères accentués
                     text = unicodedata.normalize('NFKD', text)
                     # Convertir en ASCII, en ignorant les caractères non-ASCII
                     text = text.encode('ascii', 'ignore').decode('ascii')
+                    
+                    # Restaurer les caractères préservés
+                    for char, replacement in preserved_chars.items():
+                        text = text.replace(f"__PRESERVED_{ord(char)}__", replacement)
+                    
                     # Remplacements supplémentaires pour caractères spécifiques
                     replacements = {
                         'Œ': 'OE', 'œ': 'oe', '…': '...', '–': '-', '—': '-', '\u2013': '-', '\u2014': '-',
-                        '\u2018': "'", '\u2019': "'", '\u2022': '*', '“': '"', '”': '"'
+                        '\u2018': "'", '\u2019': "'", '\u2022': '*', '"': '"', '"': '"'
                     }
                     for k, v in replacements.items():
                         text = text.replace(k, v)
@@ -1018,16 +1134,21 @@ elif st.button("Générer le PDF"):
                 date_col = df_filtre.iloc[:, 0]
                 date_col = pd.to_datetime(date_col, errors='coerce')
                 if not date_col.isna().all():
-                    date_min = date_col.min().strftime("%d/%m/%Y")
-                    date_max = date_col.max().strftime("%d/%m/%Y")
-                    periode_filtre = clean_text(f"Du {date_min} au {date_max}")
+                    date_min = date_col.min()
+                    date_max = date_col.max()
+                    mois_min = mois_fr.get(date_min.strftime("%B"), date_min.strftime("%B"))
+                    mois_max = mois_fr.get(date_max.strftime("%B"), date_max.strftime("%B"))
+                    annee_max = date_max.strftime("%Y")
+                    periode_filtre = clean_text(f"de {mois_min} à {mois_max} {annee_max}")
 
             pdf.set_xy(info_box_x + 10, start_y)
             pdf.set_font("Arial", 'B', 12)
             pdf.cell(label_width, line_height, "Assureur : ", align='L')
             pdf.set_font("Arial", '', 12)
             pdf.set_x(info_box_x + 10 + label_width)
-            pdf.multi_cell(value_width, line_height, clean_text(nom_assureur), align='L')
+            # Utiliser la version courte du nom de l'assureur
+            assureur_short = extract_assureur_words(nom_assureur, max_words=3)
+            pdf.multi_cell(value_width, line_height, clean_text(assureur_short), align='L')
 
             pdf.set_xy(info_box_x + 10, start_y + line_height)
             pdf.set_font("Arial", 'B', 12)
@@ -1057,7 +1178,7 @@ elif st.button("Générer le PDF"):
             pdf.set_font("Arial", 'I', 10)
             pdf.set_text_color(54, 69, 79)
             pdf.multi_cell(0, 5, clean_text("Ankara Services, Abidjan – Plateau, Avenue Noguès Immeuble Borija, Tel :+225 25 20 01 31 05/06\n"
-                                "Société Anonyme avec Conseil d’Administration au Capital de 10.000.000 FCFA - 01 BP 1194 ABJ 01\n"
+                                "Société Anonyme avec Conseil d'Administration au Capital de 10.000.000 FCFA - 01 BP 1194 ABJ 01\n"
                                 "RCCM CI- ABJ-03-2021-B14-00020-NCC 2110076 V-Banque : STANBIC CI198 01001 918000005921 84\n"
                                 "www.ankaraservives.com"), align="C")
             pdf.add_page()
