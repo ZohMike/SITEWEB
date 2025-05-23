@@ -467,6 +467,9 @@ prime_acquise = 0.0
 df_clause = None
 df_production = None
 
+# Placeholder global pour la période qui sera mise à jour dynamiquement
+periode_placeholder = st.empty()
+
 if fichier_detail:
     try:
         xls = pd.ExcelFile(fichier_detail)
@@ -490,19 +493,9 @@ if fichier_detail:
                     police_ankara = st.selectbox("N° Police Ankara", options=polices)
                 with col2:
                     police_assureur = st.text_input("N° Police Assureur")
-                    periode_value = ""
-                    if df_detail is not None and not df_detail.empty:
-                        date_col = df_detail.iloc[:, 0]
-                        date_col = pd.to_datetime(date_col, errors='coerce')
-                        if not date_col.isna().all():
-                            date_min = date_col.min()
-                            date_max = date_col.max()
-                            mois_min = mois_fr.get(date_min.strftime("%B"), date_min.strftime("%B"))
-                            mois_max = mois_fr.get(date_max.strftime("%B"), date_max.strftime("%B"))
-                            annee_max = date_max.strftime("%Y")
-                            periode_value = f"de {mois_min} à {mois_max} {annee_max}"
-                    st.text_input("Période concernée", value=periode_value, disabled=True)
-                    periode = periode_value
+                    # Placeholder pour la période qui sera mise à jour plus tard
+                    periode_placeholder.text_input("Période concernée", value="", disabled=True)
+                    periode = ""
         else:
             st.error("❌ Le fichier DETAIL.xlsx ne contient pas de feuille 'DETAIL'.")
     except Exception as e:
@@ -684,9 +677,35 @@ if sinistralite_ok and fichier_effectif:
             ]
             if df_effectif_filtered.empty:
                 st.warning("⚠️ Aucune donnée dans EFFECTIF.xlsx pour l'assureur et le client sélectionnés.")
+                # Mettre à jour le placeholder avec une période vide si pas de données d'effectifs
+                periode_placeholder.text_input("Période concernée", value="", disabled=True)
+                periode = ""
             else:
                 df_effectif_filtered["MOIS"] = pd.to_datetime(df_effectif_filtered["MOIS"], format="%d/%m/%Y", errors="coerce")
                 df_effectif_filtered = df_effectif_filtered.sort_values(by="MOIS", ascending=True)
+                
+                # Calculer la période à partir des données d'effectifs pour l'affichage UI
+                try:
+                    raw_dates = df_effectif_filtered["MOIS"].copy()
+                    if not raw_dates.isna().all():
+                        date_min = raw_dates.min()
+                        date_max = raw_dates.max()
+                        mois_min = mois_fr.get(date_min.strftime("%B"), date_min.strftime("%B"))
+                        mois_max = mois_fr.get(date_max.strftime("%B"), date_max.strftime("%B"))
+                        annee_min = date_min.strftime("%Y")
+                        annee_max = date_max.strftime("%Y")
+                        
+                        if annee_min == annee_max:
+                            periode = f"de {mois_min} à {mois_max} {annee_max}"
+                        else:
+                            periode = f"de {mois_min} {annee_min} à {mois_max} {annee_max}"
+                        
+                        # Mettre à jour le placeholder de la période dans l'interface
+                        periode_placeholder.text_input("Période concernée", value=periode, disabled=True)
+                except:
+                    periode = ""
+                    periode_placeholder.text_input("Période concernée", value="", disabled=True)
+                
                 df_effectif_filtered["MOIS"] = df_effectif_filtered["MOIS"].apply(format_date_fr)
                 display_columns = ["MOIS", "ADHERENT", "CONJOINTS", "ENFANTS", "TOTAL"]
                 df_effectif_display = df_effectif_filtered[display_columns]
@@ -708,6 +727,9 @@ if sinistralite_ok and fichier_effectif:
                 df_effectif = df_effectif_filtered
     except Exception as e:
         st.error(f"❌ Erreur lors du chargement des effectifs : {e}")
+        # Mettre à jour le placeholder avec une période vide en cas d'erreur
+        periode_placeholder.text_input("Période concernée", value="", disabled=True)
+        periode = ""
 
 # Section 4 : Consommation par type de bénéficiaire
 if sinistralite_ok and df_effectif is not None and df_filtre is not None and not df_filtre.empty:
@@ -1343,18 +1365,55 @@ elif st.button("Générer le PDF"):
             pdf.set_font("Arial", '', 12)
             pdf.set_text_color(54, 69, 79)
 
-            # Calculate period from df_filtre
-            periode_filtre = clean_text(periode)  # Fallback to original periode
-            if df_filtre is not None and not df_filtre.empty:
-                date_col = df_filtre.iloc[:, 0]
-                date_col = pd.to_datetime(date_col, errors='coerce')
-                if not date_col.isna().all():
-                    date_min = date_col.min()
-                    date_max = date_col.max()
-                    mois_min = mois_fr.get(date_min.strftime("%B"), date_min.strftime("%B"))
-                    mois_max = mois_fr.get(date_max.strftime("%B"), date_max.strftime("%B"))
-                    annee_max = date_max.strftime("%Y")
-                    periode_filtre = clean_text(f"de {mois_min} à {mois_max} {annee_max}")
+            # Calculer la période à partir des données d'effectifs
+            periode_filtre = clean_text(periode)  # Valeur par défaut
+            if 'df_effectif_filtered' in locals() and df_effectif_filtered is not None and not df_effectif_filtered.empty:
+                try:
+                    # Récupérer les dates de la première colonne de la table d'effectifs
+                    dates_effectif = df_effectif_filtered["MOIS"]
+                    
+                    # Convertir les dates selon leur format actuel
+                    raw_dates = []
+                    mois_inverse = {v.lower(): k for k, v in mois_fr.items()}
+                    
+                    for date_val in dates_effectif:
+                        try:
+                            # Si c'est déjà un objet datetime, l'utiliser directement
+                            if isinstance(date_val, (pd.Timestamp, datetime)):
+                                raw_dates.append(date_val)
+                            else:
+                                # Convertir depuis format français "Mois Année"
+                                parts = str(date_val).split()
+                                if len(parts) >= 2:
+                                    mois_fr_name = parts[0].lower()
+                                    annee = parts[1]
+                                    mois_en = mois_inverse.get(mois_fr_name)
+                                    if mois_en:
+                                        raw_dates.append(pd.to_datetime(f"{mois_en} 15, {annee}"))
+                                    else:
+                                        raw_dates.append(pd.NaT)
+                                else:
+                                    raw_dates.append(pd.NaT)
+                        except:
+                            raw_dates.append(pd.NaT)
+                    
+                    raw_dates = pd.Series(raw_dates)
+                    
+                    # Calculer la période si on a des dates valides
+                    if not raw_dates.isna().all():
+                        date_min = raw_dates.min()
+                        date_max = raw_dates.max()
+                        mois_min = mois_fr.get(date_min.strftime("%B"), date_min.strftime("%B"))
+                        mois_max = mois_fr.get(date_max.strftime("%B"), date_max.strftime("%B"))
+                        annee_min = date_min.strftime("%Y")
+                        annee_max = date_max.strftime("%Y")
+                        
+                        if annee_min == annee_max:
+                            periode_filtre = clean_text(f"de {mois_min} à {mois_max} {annee_max}")
+                        else:
+                            periode_filtre = clean_text(f"de {mois_min} {annee_min} à {mois_max} {annee_max}")
+                except:
+                    pass
 
             pdf.set_xy(info_box_x + 10, start_y)
             pdf.set_font("Arial", 'B', 12)
