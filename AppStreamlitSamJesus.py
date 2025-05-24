@@ -944,32 +944,77 @@ if sinistralite_ok and df_filtre is not None and not df_filtre.empty:
             autotext.set_fontsize(9)
             autotext.set_fontweight('bold')
             
-        # Ajouter des annotations avec des lignes de connexion
+        # Ajouter des annotations avec des lignes de connexion améliorées
         bbox_props = dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=1, alpha=0.9)
-        kw = dict(arrowprops=dict(arrowstyle="-", color="gray", linewidth=1.5, connectionstyle="angle,angleA=0,angleB=90,rad=10"),
-                  bbox=bbox_props, zorder=0, va="center")
-                  
-        # Positionner les étiquettes à une distance adaptée avec lignes connectrices
+        
+        # Créer une liste des positions et des étiquettes
+        labels_data = []
         for i, (wedge, text_label) in enumerate(zip(wedges, [f"{spec}" for spec in df_graph["Spécialité"]])):
             ang = (wedge.theta2 - wedge.theta1) / 2. + wedge.theta1
             x = np.cos(np.deg2rad(ang))
             y = np.sin(np.deg2rad(ang))
             
-            # Calculer la distance horizontale en fonction de la position
-            horizontalalignment = {-1: "right", 1: "left"}[int(np.sign(x))]
-            connectionstyle = f"angle,angleA=0,angleB={ang},rad=10"
+            # Ajuster la distance selon la longueur du texte
+            text_length = len(text_label)
+            if text_length > 15:  # Étiquettes longues comme "TRANSPORT PAR AMBULANCE"
+                distance = 1.5
+            elif text_length > 10:
+                distance = 1.4
+            else:
+                distance = 1.35
             
-            # Ajuster la distance en fonction de la taille du graphique
-            distance = 1.35
+            # Calculer la position finale
+            final_x = distance * x
+            final_y = distance * y
             
-            # Positionner le texte et dessiner la ligne de connexion
-            ax.annotate(text_label, xy=(x, y), xytext=(distance*x, distance*y),
-                      horizontalalignment=horizontalalignment,
-                      **kw)
+            # Déterminer l'alignement horizontal
+            if x > 0.1:
+                ha = "left"
+            elif x < -0.1:
+                ha = "right"
+            else:
+                ha = "center"
+            
+            labels_data.append({
+                'text': text_label,
+                'xy': (x, y),
+                'xytext': (final_x, final_y),
+                'ha': ha,
+                'angle': ang
+            })
+        
+        # Appliquer les annotations avec les paramètres optimisés
+        for label_info in labels_data:
+            # Style de connexion adaptatif
+            kw_adaptive = dict(
+                arrowprops=dict(
+                    arrowstyle="-", 
+                    color="gray", 
+                    linewidth=1.2,
+                    connectionstyle="arc3,rad=0.1"
+                ),
+                bbox=bbox_props, 
+                zorder=10, 
+                va="center",
+                ha=label_info['ha'],
+                fontsize=9,
+                fontweight='normal'
+            )
+            
+            ax.annotate(
+                label_info['text'], 
+                xy=label_info['xy'], 
+                xytext=label_info['xytext'],
+                **kw_adaptive
+            )
         
         # Titre et style - augmenter l'espace avec le graphique
-        fig.subplots_adjust(top=0.85)  # Réduire la zone du graphique pour donner plus d'espace au titre
+        fig.subplots_adjust(top=0.85, bottom=0.1, left=0.1, right=0.9)  # Améliorer les marges
         ax.set_title("Répartition par spécialité", fontsize=14, fontweight='bold', pad=40, y=1.1)
+        
+        # Ajuster les limites pour accueillir les étiquettes longues
+        ax.set_xlim(-2, 2)
+        ax.set_ylim(-2, 2)
         
         # Supprimer les cadres et les axes
         ax.set_frame_on(False)
