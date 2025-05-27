@@ -753,15 +753,26 @@ if sinistralite_ok and df_effectif is not None and df_filtre is not None and not
                 "CONJOINT": df_effectif["CONJOINTS"].max(),
                 "ENFANT": df_effectif["ENFANTS"].max()
             }).rename("Effectif Total")
+            
+            # Remplacer les valeurs NaN par 0 dans les effectifs
+            effectifs = effectifs.fillna(0)
+            
             montants = df_filtre.groupby("FILIATION")[col_montant].sum().rename("Montant couvert")
             tableau = pd.concat([patients_counts, effectifs, montants], axis=1)
-            tableau["Taux d'utilisation"] = tableau["Nombre de patients"] / tableau["Effectif Total"]
+            
+            # Gérer la division par zéro pour le taux d'utilisation
+            tableau["Taux d'utilisation"] = tableau.apply(
+                lambda row: row["Nombre de patients"] / row["Effectif Total"] if row["Effectif Total"] > 0 else 0, 
+                axis=1
+            )
+            
             total_montant = tableau["Montant couvert"].sum()
-            tableau["Part de consommation"] = tableau["Montant couvert"] / total_montant
+            tableau["Part de consommation"] = tableau["Montant couvert"] / total_montant if total_montant > 0 else 0
+            
             total = pd.DataFrame({
                 "Nombre de patients": [tableau["Nombre de patients"].sum()],
                 "Effectif Total": [tableau["Effectif Total"].sum()],
-                "Taux d'utilisation": [tableau["Nombre de patients"].sum() / tableau["Effectif Total"].sum()],
+                "Taux d'utilisation": [tableau["Nombre de patients"].sum() / tableau["Effectif Total"].sum() if tableau["Effectif Total"].sum() > 0 else 0],
                 "Montant couvert": [total_montant],
                 "Part de consommation": [1.0]
             }, index=["Total général"])
@@ -769,10 +780,17 @@ if sinistralite_ok and df_effectif is not None and df_filtre is not None and not
             cols = ["Nombre de patients", "Effectif Total", "Taux d'utilisation", "Montant couvert", "Part de consommation"]
             ordre_filiation = ["ASSURÉ PRINCIPAL", "CONJOINT", "ENFANT", "Total général"]
             tableau_final = tableau_final.reindex(ordre_filiation)[cols]
-            tableau_final["Taux d'utilisation"] = (tableau_final["Taux d'utilisation"].fillna(0) * 100).round(0).astype(int).astype(str) + "%"
-            tableau_final["Nombre de patients"] = tableau_final["Nombre de patients"].fillna(0).round(0).astype(int)
-            tableau_final["Part de consommation"] = (tableau_final["Part de consommation"].fillna(0) * 100).round(0).astype(int).astype(str) + "%"
-            tableau_final["Montant couvert"] = tableau_final["Montant couvert"].fillna(0).apply(lambda x: f"{int(x):,}".replace(",", " "))
+            
+            # Remplacer les valeurs non-finies avant conversion
+            tableau_final = tableau_final.replace([np.inf, -np.inf], 0)
+            tableau_final = tableau_final.fillna(0)
+            
+            # Conversions sécurisées
+            tableau_final["Taux d'utilisation"] = (tableau_final["Taux d'utilisation"] * 100).round(0).astype(int).astype(str) + "%"
+            tableau_final["Nombre de patients"] = tableau_final["Nombre de patients"].round(0).astype(int)
+            tableau_final["Part de consommation"] = (tableau_final["Part de consommation"] * 100).round(0).astype(int).astype(str) + "%"
+            tableau_final["Montant couvert"] = tableau_final["Montant couvert"].apply(lambda x: f"{int(x):,}".replace(",", " "))
+            
             st.dataframe(tableau_final)
             df_graph_benef = tableau_final[tableau_final.index != "Total général"].copy()
             df_graph_benef["Montant couvert"] = df_graph_benef["Montant couvert"].str.replace(" ", "").astype(float)
